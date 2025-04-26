@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.preprocessing import load_raw_data, handle_missing_values , drop_unnecessary_columns , calculate_entropy
+from src.preprocessing import load_raw_data, handle_missing_values , drop_unnecessary_columns , calculate_entropy , engineer_features
 
 # Test 1
 def test_load():
@@ -109,3 +109,41 @@ def test_entropy_calculation_consistency():
     # Different URLs different entropy
     phish_url = "hXXp5://s3cur3-b4nk.com/l0g1n_abc123!"
     assert calculate_entropy(phish_url) > calculate_entropy(url1)
+
+# Test 5
+def test_engineer_features():
+    test_data = pd.DataFrame({
+        'URL': [
+            'https://paypal.com/login?user=1&session=abc',  # 2 params
+            'http://sub.sub2.paypa1-security.xyz:8080/%25%26',  # No params
+            'http://simple.com?search=test'  # 1 param
+        ],
+        'Domain': ['paypal.com', 'sub.sub2.paypa1-security.xyz', 'simple.com'],
+        'TLD': ['com', 'xyz', 'com'],
+        'DomainTitleMatchScore': [0.9, 0.3, 0.6],
+        'IsHTTPS': [1, 0, 0],
+        'ObfuscationRatio': [0.1, 0.8, 0.2],
+        'NoOfExternalRef': [2, 5, 1]
+    })
+    
+    processed = engineer_features(test_data)
+    
+    # Test Parameter Count
+    assert processed['num_params'][0] == 2, "2 parameters: user & session"
+    assert processed['num_params'][1] == 0, "No query parameters"
+    assert processed['num_params'][2] == 1, "Single parameter: search"
+    
+    # Test Subdomain Levels (Count of dots)
+    assert processed['subdomain_level'][0] == 1, "paypal.com → 1 dot"
+    assert processed['subdomain_level'][1] == 3, "sub.sub2.paypa1-security.xyz → 3 dots"
+    assert processed['subdomain_level'][2] == 1, "simple-domain.com → 1 dot"
+    
+    # Test TLD Suspicion
+    assert processed['tld_suspicious'][1] == 1, ".xyz should be flagged"
+    
+    # Test Brand Mismatch
+    assert processed['brand_mismatch'][1] == 1, "Low title match score"
+    
+    # Test Risk Score
+    assert processed['risk_score'][1] > processed['risk_score'][0], "Phishing sample higher risk"
+    assert processed['risk_score'][2] < processed['risk_score'][1], "Legitimate lower risk"
