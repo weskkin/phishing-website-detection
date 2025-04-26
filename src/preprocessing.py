@@ -13,12 +13,19 @@ def load_raw_data(path: str) -> pd.DataFrame:
     except FileNotFoundError:
         raise FileNotFoundError(f"Dataset not found at {path}")
 
-# def handle_missing_values(df: pd.DataFrame) -> pd.Dataframe:
-#     # Check for missing labels
-#     missing_labels = df['label'].isnull().sum()
-#     print(f"Found {missing_labels} rows with missing labels")
 
-#     # Remove rows with missing 
+
+def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    """ Remove entries with missing class labels """
+
+    # Check for entries with missing labels
+    missing_labels = df['label'].isnull().sum()
+    print(f"Found {missing_labels} entries with missing labels")
+
+    # Remove entries with missing lables
+    cleaned_df = df.dropna(subset=['label']).copy()
+
+    return cleaned_df 
 
 # def calculate_entropy(url: str) -> float:
 #     """Calculate Shannon entropy of a URL string"""
