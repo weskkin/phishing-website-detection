@@ -1,10 +1,12 @@
-"""
-Data preprocessing pipeline for phishing detection
-Handles cleaning, feature engineering, and balancing
-"""
-
 import pandas as pd
 import numpy as np
+import joblib
+from sklearn.preprocessing import LabelEncoder
+from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import train_test_split
+from collections import Counter
+from pathlib import Path
+
 
 def load_raw_data(path: str) -> pd.DataFrame:
     """ Load raw dataset from specefied path """
@@ -58,11 +60,18 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     """ Derive new features """
 
     # URL Structure Features
+    # Ensure URL column and Domain column are string type and handle missing values
+    df['URL'] = df['URL'].fillna('').astype(str)
+    df['Domain'] = df['Domain'].fillna('').astype(str)
+
     df['url_entropy'] = df['URL'].apply(calculate_entropy)
     df['num_params'] = (
-        df['URL'].str.split('?').str[1].str.count('&').fillna(0) + 
-        df['URL'].str.contains(r'\?').astype(int)  # Changed '?' to r'\?'
+        df['URL'].str.split(r'\?').str[1]
+          .str.count('&')
+          .fillna(0)
+        + df['URL'].str.contains(r'\?').astype(int)
     )  # Count URL parameters
+
     df['subdomain_level'] = df['Domain'].str.count(r'\.')  # Subdomain depth
     
     # Domain Analysis
@@ -92,35 +101,58 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-    # def preprocess_pipeline(input_path: str, output_path: str) -> Tuple[pd.DataFrame, pd.Series]:
-    # """Updated workflow using your actual columns"""
-    # # Load data
-    # df = load_data(input_path)
+def preprocess_pipeline(input_path: str, output_dir: str = "data/processed", smote_kwargs=None) -> tuple:
+    """ Complete preprocessing workflow """
+    # Load dada
+    df = load_raw_data(input_path)
+
+    # Clean data
+    df = handle_missing_values(df)
     
-    # # Clean data - remove rows with missing labels
-    # df = clean_data(df)
+    # Feature engineering
+    df = engineer_features(df)
+
+    # Drop non useful columns
+    df = drop_unnecessary_columns(df)
     
-    # # Feature engineering (using real columns)
-    # df = engineer_features(df)
+    # Encode categorical features
+    # The only categorical feature we have is TLD, change later if there are others
+    # Or maybe later make a function that detects all categorical features and encodes them
+    le = LabelEncoder()
+    df['tld_encoded'] = le.fit_transform(df['TLD'])
+    df = df.drop(columns=['TLD'])
+
+    # Split features and target
+    X = df.drop(columns=['label'])
+    y = df['label']
+
+    # Balance classes with safety checks
+    class_counts = Counter(y)
+    min_class = min(class_counts, key=class_counts.get)
+    min_count = class_counts[min_class]
     
-    # # Handle missing values
-    # df = handle_missing_values(df)
+    # Auto-adjust k_neighbors for small test datasets
+    smote_kwargs = smote_kwargs or {}
+    if min_count == 2:
+        smote_kwargs['k_neighbors'] = 1
+    elif min_count < 2:
+        raise ValueError(f"Class {min_class} has only {min_count} samples - need at least 2")
     
-    # # Encode categorical features
-    # categorical_cols = ['TLD']  # From your column list
-    # for col in categorical_cols:
-    #     le = LabelEncoder()
-    #     df[col] = le.fit_transform(df[col])
-    
-    # # Split features and target
-    # X = df.drop('label', axis=1)
-    # y = df['label']
-    
-    # # Balance classes
-    # X_resampled, y_resampled = SMOTE().fit_resample(X, y)
-    
-    # # Save processed data
-    # processed_df = pd.concat([X_resampled, y_resampled], axis=1)
-    # processed_df.to_csv(output_path, index=False)
-    
-    # return X_resampled, y_resampled
+    smote = SMOTE(**smote_kwargs)
+    X_resampled, y_resampled = smote.fit_resample(X, y)
+
+    # Save full processed data
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    pd.concat([X, y], axis=1).to_csv(f"{output_dir}/processed_data.csv", index=False)
+    # Save features and target separately
+    X.to_csv(f"{output_dir}/features.csv", index=False)
+    y.to_csv(f"{output_dir}/target.csv", index=False)
+    # Save label encoder
+    joblib.dump(le, f"{output_dir}/label_encoder.pkl")
+
+    # Train-Test Split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_resampled, y_resampled, test_size=0.2, random_state=42
+    )
+
+    return X_train, X_test, y_train, y_test
