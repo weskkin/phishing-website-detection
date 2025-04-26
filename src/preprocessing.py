@@ -25,7 +25,14 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     # Remove entries with missing lables
     cleaned_df = df.dropna(subset=['label']).copy()
 
-    return cleaned_df 
+    return cleaned_df
+
+def drop_unnecessary_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """ Drop columns (features) that are meaningless or redundant """
+
+    new_df = df.drop(columns=["FILENAME","Title","Domain","URL"], errors='ignore')
+
+    return new_df
 
 # def calculate_entropy(url: str) -> float:
 #     """Calculate Shannon entropy of a URL string"""
@@ -58,18 +65,3 @@ def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
 #     # HTTPS presence
 #     df['uses_https'] = df['URL'].str.startswith('https').astype(int)
 
-# # divide drop columns and handle missing values
-# def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-#     """ 
-#     1. Drop unnecessary columns
-#     2. Handle missing values
-#     """
-
-#     # Remove unnecessary columns
-#     df.drop(columns=["FILENAME","Title","Domain","URL"])
-
-#     # Handle missing labels
-#     if df['label'].isnull().sum() > 0:
-#         df = df.dropna(subset=['label'])
-
-#     return df
