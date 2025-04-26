@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from src.preprocessing import load_raw_data, handle_missing_values , drop_unnecessary_columns
+from src.preprocessing import load_raw_data, handle_missing_values , drop_unnecessary_columns , calculate_entropy
 
 # Test 1
 def test_load():
@@ -81,3 +81,31 @@ def test_drop_no_columns():
     test_df = pd.DataFrame({'URLLength': [15], 'IsHTTPS': [1]})
     cleaned = drop_unnecessary_columns(test_df)
     assert len(cleaned.columns) == 2
+
+# Test 4
+def test_calculate_entropy_basic():
+    # Test with repeated characters (low entropy)
+    assert calculate_entropy("aaaaa") == pytest.approx(0.0, abs=1e-3)  # All same characters
+    
+    # Test with varied characters (high entropy)
+    assert calculate_entropy("aBcDeF123!@#") == pytest.approx(3.58496, abs=1e-3)
+
+def test_calculate_entropy_edge_cases():
+    # Empty string
+    assert calculate_entropy("") == 0.0
+    
+    # Single character
+    assert calculate_entropy("x") == 0.0
+    
+    # URL with special characters
+    assert calculate_entropy("http://example.com/?q=test&id=123") == pytest.approx(4.332, abs=1e-3)
+
+def test_entropy_calculation_consistency():
+    # Verify same URL produces same entropy
+    url1 = "https://secure-bank.com/login"
+    url2 = "https://secure-bank.com/login"
+    assert calculate_entropy(url1) == calculate_entropy(url2)
+    
+    # Different URLs different entropy
+    phish_url = "hXXp5://s3cur3-b4nk.com/l0g1n_abc123!"
+    assert calculate_entropy(phish_url) > calculate_entropy(url1)

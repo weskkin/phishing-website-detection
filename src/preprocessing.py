@@ -34,21 +34,25 @@ def drop_unnecessary_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     return new_df
 
-# def calculate_entropy(url: str) -> float:
-#     """Calculate Shannon entropy of a URL string"""
-#     # Convert URL to list of characters
-#     chars = list(url)
+def calculate_entropy(url: str) -> float:
+    """ Calculate Shannon entropy of a URL string """
+    # Handle empty string case
+    if not url:  
+        return 0.0
+
+    # Convert URL to list of characters
+    chars = list(url)
     
-#     # Count frequency of each unique character
-#     unique_chars, counts = np.unique(chars, return_counts=True)
+    # Count frequency of each unique character
+    unique_chars, counts = np.unique(chars, return_counts=True)
     
-#     # Calculate probability of each character
-#     probabilities = counts / len(url)
+    # Calculate probability of each character
+    probabilities = counts / len(url)
     
-#     # Compute entropy using Shannon formula
-#     entropy = -np.sum(probabilities * np.log2(probabilities))
+    # Compute entropy using Shannon formula
+    entropy = -np.sum(probabilities * np.log2(probabilities))
     
-#     return entropy
+    return entropy
 
 # def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 #     """ Create new features """
